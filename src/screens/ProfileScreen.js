@@ -1,16 +1,55 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useProfile } from '../context/ProfileContext';
+import { useTasks } from '../context/TaskContext';
+
+function getMonday(d) {
+  d = new Date(d);
+  var day = d.getDay(), diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(d.setDate(diff));
+}
+
+function getStreak(tasks) {
+  // Streak: consecutive days (ending today) with at least one task done
+  const doneTasks = tasks.filter(t => t.done && t.dueDate);
+  if (doneTasks.length === 0) return 0;
+  const daysSet = new Set(doneTasks.map(t => t.dueDate));
+  let streak = 0;
+  let date = new Date();
+  while (true) {
+    const iso = date.toISOString().slice(0, 10);
+    if (daysSet.has(iso)) {
+      streak++;
+      date.setDate(date.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
 
 export default function ProfileScreen() {
-  const [user, setUser] = React.useState({
-    name: 'John Doe',
-    points: 0,
-    level: 1,
-    avatar: null,
-  });
+  const { profile, updateName, updateAvatar } = useProfile();
+  const { tasks } = useTasks();
+  const [editModal, setEditModal] = useState(false);
+  const [nameInput, setNameInput] = useState(profile.name);
 
-  const [familyMembers, setFamilyMembers] = React.useState([]);
+  // Stats
+  const totalCompleted = tasks.filter(t => t.done).length;
+  
+  // Get tasks completed this week (Monday to today)
+  const monday = getMonday(new Date());
+  const completedThisWeek = tasks.filter(t => {
+    if (!t.done || !t.completedAt) return false;
+    const completedDate = new Date(t.completedAt);
+    return completedDate >= monday;
+  }).length;
+
+  const streak = getStreak(tasks);
+
+  // Family members placeholder
+  const [familyMembers, setFamilyMembers] = useState([]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -21,12 +60,12 @@ export default function ProfileScreen() {
 
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
-            {user.avatar ? (
-              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+            {profile.avatar ? (
+              <Image source={{ uri: profile.avatar }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarPlaceholderText}>
-                  {user.name.charAt(0).toUpperCase()}
+                  {profile.name.charAt(0).toUpperCase()}
                 </Text>
               </View>
             )}
@@ -36,26 +75,59 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{user.name}</Text>
+            <Text style={styles.userName}>{profile.name}</Text>
+            <TouchableOpacity onPress={() => setEditModal(true)} style={{ marginBottom: 10 }}>
+              <Text style={{ color: '#4CAF50' }}>Edit Name</Text>
+            </TouchableOpacity>
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{user.points}</Text>
-                <Text style={styles.statLabel}>Points</Text>
+                <Text style={styles.statValue}>{totalCompleted}</Text>
+                <Text style={[styles.statLabel, { textAlign: 'center' }]}>Tasks{'\n'}Done</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{user.level}</Text>
-                <Text style={styles.statLabel}>Level</Text>
+                <Text style={styles.statValue}>{completedThisWeek}</Text>
+                <Text style={[styles.statLabel, { textAlign: 'center' }]}>Done{'\n'}This Week</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{streak}</Text>
+                <Text style={[styles.statLabel, { textAlign: 'center' }]}>Day{'\n'}Streak</Text>
               </View>
             </View>
           </View>
         </View>
+
+        <Modal visible={editModal} transparent animationType="slide" onRequestClose={() => setEditModal(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ backgroundColor: 'white', padding: 24, borderRadius: 16, width: '80%' }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 12 }}>Edit Name</Text>
+              <TextInput
+                style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 16 }}
+                value={nameInput}
+                onChangeText={setNameInput}
+                placeholder="Your name"
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                <TouchableOpacity onPress={() => setEditModal(false)} style={{ marginRight: 16 }}>
+                  <Text style={{ color: '#888' }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    updateName(nameInput.trim() || 'You');
+                    setEditModal(false);
+                  }}
+                >
+                  <Text style={{ color: '#4CAF50', fontWeight: 'bold' }}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Family Members</Text>
           <TouchableOpacity style={styles.addFamilyButton}>
             <Text style={styles.addFamilyButtonText}>+ Add Family Member</Text>
           </TouchableOpacity>
-          
           {familyMembers.length === 0 ? (
             <View style={styles.emptyFamily}>
               <Text style={styles.emptyText}>No family members added yet</Text>

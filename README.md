@@ -45,3 +45,15 @@ A mobile application that gamifies house chores, making household tasks more eng
 ## License
 
 MIT 
+
+## Changelog
+
+### feature/profile-stats
+- ProfileScreen now shows real stats:
+  - Total tasks completed
+  - Tasks completed this week
+  - Streak (consecutive days with at least one task done)
+- Added ProfileContext for user name and avatar (local-only)
+- User can edit their name from ProfileScreen
+- UI improvements for stats and editing
+- All data is local-only (no backend yet) 

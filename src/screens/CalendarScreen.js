@@ -1,9 +1,26 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTasks } from '../context/TaskContext';
+
+function formatDate(iso) {
+  if (!iso) return 'N/A';
+  const [year, month, day] = iso.split('-');
+  return `${day}/${month}/${year}`;
+}
+
+function formatDateForComparison(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = React.useState(new Date());
+  const { tasks, toggleTaskDone } = useTasks();
+  const selectedDateStr = formatDateForComparison(selectedDate);
+  const tasksForDate = tasks.filter(task => task.dueDate === selectedDateStr);
 
   const renderCalendarHeader = () => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -30,7 +47,7 @@ export default function CalendarScreen() {
               styles.calendarDay,
               selectedDate.getDate() === day && styles.selectedDay,
             ]}
-            onPress={() => setSelectedDate(new Date(selectedDate.setDate(day)))}
+            onPress={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day))}
           >
             <Text
               style={[
@@ -46,6 +63,17 @@ export default function CalendarScreen() {
     );
   };
 
+  const renderTask = ({ item }) => (
+    <TouchableOpacity style={styles.taskCard} onPress={() => toggleTaskDone(item.id)}>
+      <Text style={[styles.taskTitle, item.done && styles.taskDone]}>
+        {item.title} {item.done ? '✔️' : ''}
+      </Text>
+      <Text style={styles.taskDescription}>{item.description}</Text>
+      <Text style={styles.taskPoints}>Points: {item.points}</Text>
+      <Text style={styles.taskAssignee}>Assigned to: {item.assignee || 'Unassigned'}</Text>
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -58,10 +86,19 @@ export default function CalendarScreen() {
       </View>
 
       <View style={styles.eventsContainer}>
-        <Text style={styles.eventsTitle}>Events for {selectedDate.toDateString()}</Text>
-        <View style={styles.emptyEvents}>
-          <Text style={styles.emptyText}>No events scheduled</Text>
-        </View>
+        <Text style={styles.eventsTitle}>Tasks for {formatDate(selectedDateStr)}</Text>
+        {tasksForDate.length === 0 ? (
+          <View style={styles.emptyEvents}>
+            <Text style={styles.emptyText}>No tasks scheduled</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={tasksForDate}
+            renderItem={renderTask}
+            keyExtractor={item => item.id}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -146,5 +183,37 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#666',
     fontStyle: 'italic',
+  },
+  taskCard: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  taskTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  taskDone: {
+    textDecorationLine: 'line-through',
+    color: '#888',
+  },
+  taskDescription: {
+    color: '#666',
+    marginBottom: 4,
+  },
+  taskPoints: {
+    color: '#4CAF50',
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  taskAssignee: {
+    color: '#666',
+    fontSize: 12,
   },
 }); 
